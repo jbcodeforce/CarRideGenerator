@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Autonomous car ride generator
+Globals: # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification-template-anatomy-globals.html
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Runtime: python3.9
+
+Resources:
+  GeneratorFunction:
+    Type: AWS::Serverless::Function     # More info about Function Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
+    Properties:
+      Handler: app.lambda_handler
+      CodeUri: generator
+      Description: Generate Car Ride function
+      Architectures:
+      - x86_64
+      Tracing: Active
+      Events:
+        SimulPath:
+          Type: Api           # More info about API Event Source: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-function-api.html
+          Properties:
+            Path: /simul
+            Method: POST
+             # Powertools env vars: https://awslabs.github.io/aws-lambda-powertools-python/#environment-variables
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: CarRideGenerator
+          POWERTOOLS_METRICS_NAMESPACE: CarRides
+          LOG_LEVEL: INFO
+      Tags:
+        LambdaPowertools: python
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name:
+        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName:
+        Ref: ApplicationResourceGroup
+      AutoConfigurationEnabled: 'true'
+Outputs:
+  CarRideGeneratorApi:
+    Description: API Gateway endpoint URL for Prod environment for Car Ride Generator Function
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/simul"
+
+  CarRideGeneratorFunction:
+    Description: Car Ride Generator Lambda Function ARN
+    Value: !GetAtt GeneratorFunction.Arn
+
